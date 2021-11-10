@@ -1,0 +1,48 @@
+/* Formatted on 4/19/2021 10:52:15 AM (QP5 v5.360) */
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.CREATE_ACL (acl           => 'APIGATEWAY_ACL1.xml',
+                                       description   => 'APIGATEWAY ACL.',
+                                       principal     => 'APEX_200200',
+                                       is_grant      => TRUE,
+                                       privilege     => 'connect');
+END;
+/
+
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE (acl         => 'APIGATEWAY_ACL1.xml',
+                                          principal   => 'APEX_200200',
+                                          is_grant    => TRUE,
+                                          privilege   => 'connect');
+END;
+/
+
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.ADD_PRIVILEGE (acl         => 'APIGATEWAY_ACL1.xml',
+                                          principal   => 'APEX_200200',
+                                          is_grant    => TRUE,
+                                          privilege   => 'resolve');
+END;
+/
+
+BEGIN
+    DBMS_NETWORK_ACL_ADMIN.ASSIGN_ACL (acl    => 'APIGATEWAY_ACL1.xml',
+                                       HOST   => '10.11.201.170');
+END;
+/
+
+COMMIT;
+/
+
+--================
+SELECT host, lower_port, upper_port, acl
+FROM   dba_network_acls;
+/* Formatted on 6/27/2021 3:48:14 PM (QP5 v5.313) */
+--Un-assign network from ACL:
+EXEC DBMS_NETWORK_ACL_ADMIN.UNASSIGN_ACL(acl =>'APIGATEWAY_ACL1.xml',lower_port =>'*',upper_port =>25);
+
+-- Remove privilege from an user:
+EXEC DBMS_NETWORK_ACL_ADMIN.DELETE_PRIVILEGE(acl =>'APIGATEWAY_ACL1.xml',principal =>'PUBLIC',is_grant =>TRUE,privilege =>'connect');
+EXEC DBMS_NETWORK_ACL_ADMIN.DELETE_PRIVILEGE(acl =>'APIGATEWAY_ACL1.xml',principal =>'PUBLIC',is_grant =>TRUE,privilege =>'resolve');
+
+-- Drop ACL:
+EXEC DBMS_NETWORK_ACL_ADMIN.DROP_ACL (acl => 'APIGATEWAY_ACL1.xml' );

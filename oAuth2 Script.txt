@@ -1,0 +1,228 @@
+REM ==== CREATE SCRIPT 
+--http://10.11.201.49:8085/apigtway/apiservices/ac_balance/v1.0/balance
+
+http://10.11.201.49:8085/apigtway/apiservices/ac_balance/v1.0/balance
+inputjson=> {"BALANCE_INQUIRY":{"ACC_NO":"04934002608"}} --HEADER
+
+http://10.11.201.49:8085/apigtway/apiservices/oauth/token
+
+CLIENT_ID     : BANKASIA
+CLIENT_SECRET : 0skp14Yyxtf3UsZGmbV1uQ..
+
+BEGIN
+    ords.create_role (p_role_name => 'API_ACCESS_ROLE');
+    COMMIT;
+END;
+
+DECLARE
+    la_roles   OWA.vc_arr;
+BEGIN
+    la_roles (1) := 'API_ACCESS_ROLE';
+    ords.define_privilege (p_privilege_name   => 'API_ACCESS_PRIVILEGE',
+                           p_roles            => la_roles,
+                           p_label            => 'API Service',
+                           p_description      => 'Access to API Service');
+    COMMIT;
+END;
+
+DECLARE
+    la_priv_patterns   OWA.vc_arr;
+BEGIN
+    la_priv_patterns (1) := '/ac_balance/v1.0/balance';
+    ords.create_privilege_mapping (
+        p_privilege_name   => 'API_ACCESS_PRIVILEGE',
+        p_patterns         => la_priv_patterns);
+    COMMIT;
+END;
+
+
+BEGIN
+    oauth.create_client (
+        p_name              => 'SHUBIDHA',
+        p_grant_type        => 'client_credentials',
+        p_description       => 'SHUBIDHA Acess API Services from APIGTWAY',
+        p_support_email     => 'tarik@erainfotechltd.com',
+        p_privilege_names   => NULL);
+    COMMIT;
+END;
+
+BEGIN
+    oauth.grant_client_role (p_client_name   => 'SHUBIDHA',
+                             p_role_name     => 'API_ACCESS_ROLE');
+    COMMIT;
+END;
+REM ==== REVOKE SCRIPT 
+BEGIN
+  OAUTH.revoke_client_role(
+    p_client_name => 'BANKASIA',
+    p_role_name   => 'API_ACCESS_ROLE'
+  );
+
+  COMMIT;
+END;
+/
+BEGIN
+  OAUTH.delete_client(
+    p_name => 'BANKASIA'
+  );
+
+  COMMIT;
+END;
+/
+BEGIN
+  ORDS.delete_privilege_mapping(
+    p_privilege_name => 'API_ACCESS_PRIVILEGE',
+    p_pattern => '/ac_balance/v1.0/balance'
+  );     
+
+  COMMIT;
+END;
+/
+
+BEGIN
+  ORDS.delete_privilege (
+    p_name => 'API_ACCESS_PRIVILEGE'
+  );
+   
+  COMMIT;
+END;
+/
+BEGIN
+  ORDS.delete_role(
+    p_role_name => 'API_ACCESS_ROLE'
+  );
+  
+  COMMIT;
+END;
+/
+
+============
+
+SELECT id, name
+FROM   user_ords_roles
+WHERE  name = 'API_ACCESS_ROLE';
+
+
+SELECT id, name
+FROM   user_ords_privileges
+WHERE  name = 'API_ACCESS_PRIVILEGE';
+
+
+SELECT privilege_id, privilege_name, role_id, role_name
+FROM   user_ords_privilege_roles
+WHERE  role_name = 'API_ACCESS_ROLE';
+
+
+SELECT privilege_id, name, pattern
+FROM   user_ords_privilege_mappings
+WHERE  name = 'API_ACCESS_PRIVILEGE'
+
+SELECT client_name, role_name
+FROM   user_ords_client_roles
+
+SELECT id, name, description, client_id, client_secret
+FROM user_ords_clients
+WHERE name = 'BANKASIA'
+--================ API CREATE
+/* Formatted on 6/27/2021 9:47:14 PM (QP5 v5.313) */
+BEGIN
+    ORDS.ENABLE_SCHEMA (p_enabled               => TRUE,
+                        p_schema                => 'MIDDLEMAN',
+                        p_url_mapping_type      => 'BASE_PATH',
+                        p_url_mapping_pattern   => 'apiservices',
+                        p_auto_rest_auth        => FALSE);
+    COMMIT;
+END;
+
+BEGIN
+    ORDS.DEFINE_MODULE (p_module_name      => 'Balance.Enquiry',
+                        p_base_path        => 'AccountBalance/v1/',
+                        p_items_per_page   => 25,
+                        p_status           => 'PUBLISHED',
+                        p_comments         => 'Sample API Name');
+    COMMIT;
+END;
+
+BEGIN
+    ords.define_template (p_module_name   => 'Balance.Enquiry',
+                          p_pattern       => 'Enquiry',
+                          p_comments      => 'Balance Enquiry');
+    COMMIT;
+END;
+
+BEGIN
+    ords.define_handler (
+        p_module_name =>
+            'Balance.Enquiry',
+        p_pattern =>
+            'Enquiry',
+        p_method =>
+            'POST',
+        p_source_type =>
+            ords.source_type_plsql,
+        p_source =>
+            'BEGIN
+            MIDDLEMAN.APIGTWAY.PKG_INTERNAL_API_CALLING.BALANCE_ENQUIRY(
+                                                               pUserId  => :userId,
+                                                               pInputJson      => :inputjson,
+                                                               pOutputJson     => :outputjson);
+                :pn_status := 200;
+                :pv_result := ''Successfully API Calling.'';
+                EXCEPTION
+                WHEN OTHERS THEN
+                :pn_status := 400;
+                :pv_result := ''Unable to Call API: '' 
+                || SQLERRM;
+            END;',
+        p_comments =>
+            'Balance Enquiry API');
+    COMMIT;
+END;
+
+BEGIN
+    ords.define_parameter (p_module_name          => 'Balance.Enquiry',
+                           p_pattern              => 'Enquiry',
+                           p_method               => 'POST',
+                           p_name                 => 'userId',
+                           p_bind_variable_name   => 'userId',
+                           p_source_type          => 'HEADER',
+                           p_param_type           => 'STRING',
+                           p_access_method        => 'IN',
+                           p_comments             => 'Input User Name');
+
+    ords.define_parameter (p_module_name          => 'Balance.Enquiry',
+                           p_pattern              => 'Enquiry',
+                           p_method               => 'POST',
+                           p_name                 => 'inputjson',
+                           p_bind_variable_name   => 'inputjson',
+                           p_source_type          => 'HEADER',
+                           p_param_type           => 'STRING',
+                           p_access_method        => 'IN',
+                           p_comments             => 'Input JSON Data');
+
+    ords.define_parameter (p_module_name          => 'Balance.Enquiry',
+                           p_pattern              => 'Enquiry',
+                           p_method               => 'POST',
+                           p_name                 => 'X-APEX-STATUS-CODE',
+                           p_bind_variable_name   => 'pn_status',
+                           p_source_type          => 'RESPONSE',
+                           p_param_type           => 'INT',
+                           p_access_method        => 'OUT',
+                           p_comments             => 'Response status');
+
+    ords.define_parameter (p_module_name          => 'Balance.Enquiry',
+                           p_pattern              => 'Enquiry',
+                           p_method               => 'POST',
+                           p_name                 => 'outputjson',
+                           p_bind_variable_name   => 'outputjson',
+                           p_source_type          => 'RESPONSE',
+                           p_param_type           => 'STRING',
+                           p_access_method        => 'OUT',
+                           p_comments             => 'Output JSON Data');
+    COMMIT;
+END;
+
+BEGIN
+    ORDS.delete_module (p_module_name => 'Balance.Enquiry');
+    COMMIT;
+END;
