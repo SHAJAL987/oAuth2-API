@@ -1,0 +1,67 @@
+CREATE OR REPLACE PROCEDURE EKYC.PRC_NID_VERIFICATION (
+    pErrorMessage   OUT VARCHAR2,
+    pErrorFlag      OUT VARCHAR2)
+IS
+    vClobResponse   CLOB;
+    vUrl            VARCHAR2 (32767);
+    vData           VARCHAR2 (32767);
+    l_multipart apex_web_service.t_multipart_parts;
+    l_blob blob;
+    l_body blob;
+    vMyException    EXCEPTION;
+BEGIN
+    BEGIN
+        vData := '{
+    "dateOfBirth": "01-JAN-1986",
+    "nid": "8229654507"
+                   }';
+
+        -- API Calling...
+        BEGIN
+            apex_web_service.g_request_headers (1).name := 'Content-Type';
+            apex_web_service.g_request_headers (1).VALUE :=
+                'application/json';
+
+            apex_web_service.g_request_headers (2).name := 'Authorization';
+            apex_web_service.g_request_headers (2).VALUE := 'eyJhbGciOiJSUzI1NiIsInppcCI6IkRFRiJ9.eJxVzTELgzAQBeC_Ije7pLFC3RQsuChYxyyxnhI8YzEKLeJ_7zWlQ8f38e7dDvh8QCLiWJ5kJC8iBLe1kMCuwHQKEilicY5CBZvDxeoJ2Tjo1ilg7Tei8qfpgHYNMm1HY4fg9nIrTr6FkzbEFcttjjTfR_yM95ocMnTG6Zb-aeYb62ezoknLqvRLy0zfX3VVNV5Wg4uXa53nCg443l6HQqw.4B9DHlZgDewxUH5VWA506vYvYTmdoU5VOoT2XSC0vQgmg1bTEFwxgfPPO3NeklBgCk0Vgk1pqff9Wq8_bKpCMLnzFnpTzgmFbDtZQu2Rcx0TJuamp4RZRUKQX7WuV4TS96Cyk0dUUJKViUDNj_Ah-yFeNReEKBDGLj1vieXi_B9R8SHlwt6JY6NIKeuSG3bguHfHT8IC58x1XyQDPAW1_B3Xl0Oqgz66LUWvXLisBDGo6ghw4Sk6V_QMUqdxPXpXCKrp5DIluy7iIWVmJ1engUB0UYnSjHH1qVs8chlOcm9B97drb87Edr0KvqG33Onz4fz9FX9MOAfTpxwajounQw';
+
+           
+      apex_web_service.append_to_multipart(
+        p_multipart    => l_multipart,
+        p_name         => 'dob',
+        p_content_type => 'application/octet-stream',
+        p_body_blob    => utl_raw.cast_to_raw('1986-01-01')
+    );
+    
+     apex_web_service.append_to_multipart(
+        p_multipart    => l_multipart,
+        p_name         => 'nid',
+        p_content_type => 'application/octet-stream',
+        p_body_blob    => utl_raw.cast_to_raw('8229654507')
+    );
+
+
+    l_body := apex_web_service.generate_request_body(
+        p_multipart => l_multipart
+    );
+    
+            vClobResponse :=
+                APEX_WEB_SERVICE.make_rest_request (p_url           => 'https://ekycgatewayuat.ucb.com.bd:4782/api/nid-scraper/nid-info',
+                                                    p_http_method   => 'POST',
+                                                    p_body_blob     => l_body,
+                                                    p_wallet_path   => 'file:/u01/wallet/EkycWallet',
+                                                    p_wallet_pwd    => 'ucbekyc123');
+        EXCEPTION
+            WHEN OTHERS
+            THEN
+                pErrorMessage :=
+                    'NID Verification API calling problem.' || SQLERRM;
+                RAISE vMyException;
+        END;
+    END;
+EXCEPTION
+    WHEN vMyException
+    THEN
+        pErrorFlag := 'Y';
+END;
+/
